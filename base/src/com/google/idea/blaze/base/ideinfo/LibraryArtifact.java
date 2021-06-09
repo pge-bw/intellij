@@ -83,13 +83,10 @@ public final class LibraryArtifact implements ProtoWrapper<IntellijIdeInfo.Libra
   /**
    * Returns the best jar to add to IntelliJ.
    *
-   * <p>We use the class jar if there are no source jars, otherwise the interface jar.
+   * <p>Patched to always return the class jar so that 3rd party library refs always resolve
    */
   public ArtifactLocation jarForIntellijLibrary() {
-    if (sourceJars.isEmpty() && indexClassJarIfNoSrcJars.getValue()) {
-      return classJar != null ? classJar : interfaceJar;
-    }
-    return interfaceJar != null ? interfaceJar : classJar;
+    return classJar != null ? classJar : interfaceJar;
   }
 
   @Override
