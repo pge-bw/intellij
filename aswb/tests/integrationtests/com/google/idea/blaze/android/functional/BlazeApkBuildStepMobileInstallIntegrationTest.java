@@ -118,7 +118,12 @@ public class BlazeApkBuildStepMobileInstallIntegrationTest extends BlazeAndroidI
         BuildResultHelperProvider.EP_NAME,
         new BuildResultHelperProvider() {
           @Override
-          public Optional<BuildResultHelper> doCreate(Project project) {
+          public Optional<BuildResultHelper> doCreate(Project project, BlazeInfo blazeInfo) {
+            return Optional.of(mockBuildResultHelper);
+          }
+
+          @Override
+          public Optional<BuildResultHelper> doCreateForLocalBuild(Project project) {
             return Optional.of(mockBuildResultHelper);
           }
 

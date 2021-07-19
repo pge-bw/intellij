@@ -71,15 +71,16 @@ public interface BlazeIdeInterface {
   /**
    * Attempts to compile the requested ide artifacts.
    *
-   * <p>Amounts to a build of the ide-compile output group.
+   * <p>Amounts to a build of the ide-compile-* output group.
    */
-  BuildResult compileIdeArtifacts(
+  BlazeBuildOutputs compileIdeArtifacts(
       Project project,
       BlazeContext context,
       WorkspaceRoot workspaceRoot,
+      BlazeVersionData blazeVersion,
       BlazeBuildParams buildParams,
       ProjectViewSet projectViewSet,
-      BlazeVersionData blazeVersionData,
-      WorkspaceLanguageSettings workspaceLanguageSettings,
-      ShardedTargetList shardedTargets);
+      BlazeInfo blazeInfo,
+      ShardedTargetList shardedTargets,
+      WorkspaceLanguageSettings workspaceLanguageSettings);
 }
