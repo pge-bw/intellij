@@ -30,10 +30,14 @@ import com.android.tools.idea.projectsystem.GoogleMavenArtifactId;
 import com.google.common.collect.ImmutableList;
 import com.google.idea.blaze.android.BlazeAndroidIntegrationTestCase;
 import com.google.idea.blaze.android.MockSdkUtil;
+import com.google.idea.blaze.android.libraries.AarDirectoryNameUtils;
 import com.google.idea.blaze.android.libraries.AarLibraryFileBuilder;
 import com.google.idea.blaze.android.libraries.UnpackedAars;
+import com.google.idea.blaze.android.libraries.Unpacker;
 import com.google.idea.blaze.android.projectsystem.BlazeModuleSystem;
 import com.google.idea.blaze.android.projectsystem.MavenArtifactLocator;
+import com.google.idea.blaze.android.sync.model.AarLibrary;
+import com.google.idea.blaze.android.sync.model.AarLibraryFactory;
 import com.google.idea.blaze.android.targetmapbuilder.NbAarTarget;
 import com.google.idea.blaze.android.targetmapbuilder.NbAndroidTarget;
 import com.google.idea.blaze.base.ideinfo.ArtifactLocation;
@@ -197,14 +201,14 @@ public class BlazeModuleSystemDependentLibrariesIntegrationTest
     return ArtifactLocation.builder().setRelativePath(relativePath).setIsSource(true).build();
   }
 
-  private ExternalLibrary getAarLibrary(
-      PathString rootPath, String aarPath, @Nullable String resourcePackage) {
-    String cacheKey = UnpackedAars.cacheKeyForAar(rootPath.resolve(aarPath).getNativePath());
-    UnpackedAars unpackedAars = UnpackedAars.getInstance(getProject());
-    PathString aarFile = new PathString(unpackedAars.getAarDir(cacheKey));
-    PathString resFolder = new PathString(unpackedAars.getResourceDirectory(cacheKey));
-    return new ExternalLibraryImpl(LibraryKey.libraryNameFromArtifactLocation(source(aarPath)))
-        .withLocation(aarFile)
+  private ExternalLibrary getAarLibrary(String aarPath, @Nullable String resourcePackage) {
+    AarLibrary aarLibrary = AarLibraryFactory.create(source(aarPath), resourcePackage);
+    String cacheKey = Unpacker.getAarDirName(aarLibrary);
+    File aarDir = new File(UnpackedAars.getInstance(getProject()).getCacheDir(), cacheKey);
+    PathString aarDirPathString = new PathString(aarDir);
+    PathString resFolder = new PathString(AarDirectoryNameUtils.getResDir(aarDir));
+    return new ExternalLibraryImpl(aarLibrary.key.toString())
+        .withLocation(aarDirPathString)
         .withManifestFile(
             resFolder == null ? null : resFolder.getParentOrRoot().resolve("AndroidManifest.xml"))
         .withResFolder(resFolder == null ? null : new SelectiveResourceFolder(resFolder, null))
@@ -234,20 +238,16 @@ public class BlazeModuleSystemDependentLibrariesIntegrationTest
 
   @Test
   public void getDependencies_appModule() {
-    PathString rootPath = new PathString(workspaceRoot.directory());
     Collection<ExternalLibrary> libraries = appModuleSystem.getDependentLibraries();
     assertThat(new ArrayList<>(libraries))
         .containsExactly(
-            getAarLibrary(rootPath, "third_party/aar/lib_aar.aar", "third_party.aar"),
-            getAarLibrary(rootPath, "java/com/google/app-third_party-shared-res.aar", "com.google"),
+            getAarLibrary("third_party/aar/lib_aar.aar", "third_party.aar"),
+            getAarLibrary("java/com/google/app-third_party-shared-res.aar", "com.google"),
             getAarLibrary(
-                rootPath,
                 "third_party/constraint_layout/constraint_layout-third_party-constraint_layout-res.aar",
                 "third_party.constraint_layout"),
             getAarLibrary(
-                rootPath,
-                "third_party/quantum/values-third_party-quantum-res.aar",
-                "third_party.quantum"));
+                "third_party/quantum/values-third_party-quantum-res.aar", "third_party.quantum"));
 
     assertThat(
             libraries.stream()
@@ -263,15 +263,12 @@ public class BlazeModuleSystemDependentLibrariesIntegrationTest
     assertThat(new ArrayList<>(libraries))
         .containsExactly(
             getAarLibrary(
-                rootPath,
-                "third_party/quantum/values-third_party-quantum-res.aar",
-                "third_party.quantum"),
-            getAarLibrary(rootPath, "java/com/google/app-third_party-shared-res.aar", "com.google"),
+                "third_party/quantum/values-third_party-quantum-res.aar", "third_party.quantum"),
+            getAarLibrary("java/com/google/app-third_party-shared-res.aar", "com.google"),
             getAarLibrary(
-                rootPath,
                 "third_party/constraint_layout/constraint_layout-third_party-constraint_layout-res.aar",
                 "third_party.constraint_layout"),
-            getAarLibrary(rootPath, "third_party/aar/lib_aar.aar", "third_party.aar"),
+            getAarLibrary("third_party/aar/lib_aar.aar", "third_party.aar"),
             new ExternalLibraryImpl(
                 LibraryKey.libraryNameFromArtifactLocation(source("third_party/guava-21.jar")),
                 null,

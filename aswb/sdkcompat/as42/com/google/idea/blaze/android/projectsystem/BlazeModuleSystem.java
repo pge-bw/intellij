@@ -23,6 +23,7 @@ import com.android.tools.idea.projectsystem.AndroidModuleSystem;
 import com.android.tools.idea.projectsystem.DependencyScopeType;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.idea.blaze.android.libraries.UnpackedAars;
 import com.google.idea.blaze.android.sync.model.AarLibrary;
 import com.google.idea.blaze.android.sync.model.AndroidResourceModuleRegistry;
@@ -106,32 +107,32 @@ public class BlazeModuleSystem extends BlazeModuleSystemBase implements BlazeCla
       return ImmutableList.of();
     }
 
-    ImmutableList.Builder<ExternalLibrary> libraries = ImmutableList.builder();
-    ArtifactLocationDecoder decoder = blazeProjectData.getArtifactLocationDecoder();
+    // It's possible to have duplicate ExternalLibrary when AarLibrary shared same library key.
+    // Use set to avoid duplication.
+    ImmutableSet.Builder<ExternalLibrary> libraries = ImmutableSet.builder();
     ExternalLibraryInterner externalLibraryInterner = ExternalLibraryInterner.getInstance(project);
     for (String libraryKey : registry.get(module).resourceLibraryKeys) {
       ImmutableMap<String, AarLibrary> aarLibraries = androidSyncData.importResult.aarLibraries;
-      if (aarLibraries != null && aarLibraries.containsKey(libraryKey)) {
-        ExternalLibrary externalLibrary =
-            toExternalLibrary(project, aarLibraries.get(libraryKey), decoder);
-        if (externalLibrary != null) {
-          libraries.add(externalLibraryInterner.intern(externalLibrary));
-        }
+      ExternalLibrary externalLibrary = toExternalLibrary(project, aarLibraries.get(libraryKey));
+      if (externalLibrary != null) {
+        libraries.add(externalLibraryInterner.intern(externalLibrary));
       }
     }
     return libraries.build();
   }
 
-  private static ImmutableList<ExternalLibrary> getLibrariesForWorkspaceModule(
+  private static ImmutableSet<ExternalLibrary> getLibrariesForWorkspaceModule(
       Project project, BlazeProjectData blazeProjectData) {
     ArtifactLocationDecoder decoder = blazeProjectData.getArtifactLocationDecoder();
     ExternalLibraryInterner externalLibraryInterner = ExternalLibraryInterner.getInstance(project);
-    ImmutableList.Builder<ExternalLibrary> libraries = ImmutableList.builder();
+    ImmutableSet.Builder<ExternalLibrary> libraries = ImmutableSet.builder();
     for (BlazeLibrary library :
         BlazeLibraryCollector.getLibraries(
             ProjectViewManager.getInstance(project).getProjectViewSet(), blazeProjectData)) {
+      // It's possible to have duplicate ExternalLibrary when AarLibrary shared same library key.
+      // Use set to avoid duplication.
       if (library instanceof AarLibrary) {
-        ExternalLibrary externalLibrary = toExternalLibrary(project, (AarLibrary) library, decoder);
+        ExternalLibrary externalLibrary = toExternalLibrary(project, (AarLibrary) library);
         if (externalLibrary != null) {
           libraries.add(externalLibraryInterner.intern(externalLibrary));
         }
@@ -147,10 +148,12 @@ public class BlazeModuleSystem extends BlazeModuleSystemBase implements BlazeCla
   }
 
   @Nullable
-  static ExternalLibrary toExternalLibrary(
-      Project project, AarLibrary library, ArtifactLocationDecoder decoder) {
+  static ExternalLibrary toExternalLibrary(Project project, @Nullable AarLibrary library) {
+    if (library == null) {
+      return null;
+    }
     UnpackedAars unpackedAars = UnpackedAars.getInstance(project);
-    File aarFile = unpackedAars.getAarDir(decoder, library);
+    File aarFile = unpackedAars.getAarDir(library);
     if (aarFile == null) {
       logger.warn(
           String.format(
@@ -158,7 +161,7 @@ public class BlazeModuleSystem extends BlazeModuleSystemBase implements BlazeCla
               library.aarArtifact));
       return null;
     }
-    File resFolder = unpackedAars.getResourceDirectory(decoder, library);
+    File resFolder = unpackedAars.getResourceDirectory(library);
     PathString resFolderPathString = resFolder == null ? null : new PathString(resFolder);
     return new ExternalLibraryImpl(library.key.toString())
         .withLocation(new PathString(aarFile))

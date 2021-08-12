@@ -98,6 +98,7 @@ java_library(
         "//java",
         "//proto:proto_deps",
         "//sdkcompat",
+        "//third_party/auto_value",
     ],
 )
 
